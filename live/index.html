@@ -115,6 +115,17 @@ tr.st-queue td:first-child, tr.st-resting td:first-child { box-shadow:inset 4px 
 .badge.stopped { color:#62665f; background:#ecefeb; }
 .balance-due { color:#b84a25; font-weight:900; }
 .paid-amt { color:#735800; font-weight:800; text-decoration:line-through; }
+.club-stats { margin-top:18px; border:1px solid #29271f; border-radius:16px; overflow:hidden; background:linear-gradient(110deg,#0d0d0c,#28210f); color:white; }
+.club-stats header { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; padding:14px 18px 4px; }
+.club-stats header b { color:var(--gold); font-size:12px; letter-spacing:.11em; font-weight:900; }
+.club-stats header span { color:#b9c9c1; font-size:12px; }
+.club-stats .tiles { display:grid; grid-template-columns:repeat(5,1fr); }
+.club-stats .tiles div { padding:10px 18px 16px; border-right:1px solid rgba(255,255,255,.12); }
+.club-stats .tiles div:last-child { border-right:0; }
+.club-stats small { display:block; font-size:11px; color:#b9c9c1; font-weight:700; }
+.club-stats strong { font-size:28px; font-variant-numeric:tabular-nums; }
+.club-stats strong.gold { color:#ffd97a; }
+@media (max-width:640px) { .club-stats .tiles { grid-template-columns:repeat(3,1fr); } .club-stats .tiles div:nth-child(3) { border-right:0; } .club-stats .tiles div:nth-child(n+4) { border-top:1px solid rgba(255,255,255,.12); } .club-stats strong { font-size:22px; } }
 .rules { margin-top:18px; display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); border:1px solid #29271f; border-radius:14px; overflow:hidden; background:linear-gradient(110deg,#0d0d0c,#28210f); color:white; }
 .rules div { padding:13px 16px; border-right:1px solid rgba(255,255,255,.12); }
 .rules div:last-child { border-right:0; }
@@ -194,6 +205,8 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; m
     </div>
   </section>
 
+  <section class="club-stats" id="clubStats" aria-label="สถิติรวมของก๊วน" hidden></section>
+
   <section class="rules" aria-label="ข้อมูลก๊วน">
     <div><b>รับทุกระดับมือ</b><span>มือใหม่มาได้ จัดคู่ให้สูสี</span></div>
     <div><b>กติกาก๊วน</b><span>รู้กติกา มารยาท • ดูแลตัวเองได้ • เล่นเพื่อสนุก</span></div>
@@ -261,6 +274,12 @@ function render() {
 
   const done = snap.games.filter((g) => g.status === "ended").sort((a, b) => b.number - a.number);
   $("doneNote").textContent = done.length ? `${done.length} เกม` : "";
+  const cs = snap.clubStats;
+  $("clubStats").hidden = !cs || !cs.games;
+  if (cs && cs.games) {
+    const since = cs.since ? new Date(cs.since + "T12:00:00+07:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : "";
+    $("clubStats").innerHTML = `<header><b>สถิติก๊วน BADMAN</b><span>${since ? "ตั้งแต่ " + since + " • " : ""}${cs.nights} คืน</span></header><div class="tiles"><div><small>สมาชิก</small><strong>${cs.members.toLocaleString()}</strong></div><div><small>เกมทั้งหมด</small><strong>${cs.games.toLocaleString()}</strong></div><div><small>ผลเสมอ</small><strong class="gold">${cs.drawPct}%</strong></div><div><small>ลูกแบดที่ใช้</small><strong>${cs.shuttles.toLocaleString()}</strong></div><div><small>เฉลี่ยต่อคืน</small><strong>${Math.round(cs.games / Math.max(1, cs.nights))}</strong></div></div>`;
+  }
   $("done").innerHTML = done.length ? done.map((g) => gameCard(g, name)).join("") : '<div class="empty"><span>ยังไม่มีเกมที่จบ</span></div>';
   renderStatus();
 }
