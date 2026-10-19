@@ -122,6 +122,16 @@ h3 { margin:0 0 10px; font-size:14px; letter-spacing:.06em; color:#a47a06; font-
 .partner > span:not(.avatar) { flex:1; font-weight:800; min-width:0; }
 .partner em { font-style:normal; color:var(--muted); font-size:12px; }
 .back { display:inline-block; margin-top:14px; font-weight:800; text-decoration:none; color:var(--muted); }
+.levels { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; padding:14px 16px 16px; }
+.lv { display:grid; grid-template-columns:44px 1fr; gap:4px 12px; align-items:start; border:1px solid var(--line); border-radius:14px; padding:12px; background:#fbfaf5; text-align:left; cursor:pointer; }
+.lv:hover { border-color:var(--gold); }
+.lv[aria-pressed="true"] { border-color:var(--black); box-shadow:inset 0 0 0 1px var(--black); }
+.lv .ic { grid-row:span 3; width:44px; height:44px; border-radius:12px; background:var(--black); display:grid; place-items:center; font-size:22px; }
+.lv b { font-size:14px; }
+.lv b em { font-style:normal; color:#a47a06; font-size:11px; letter-spacing:.06em; display:block; }
+.lv span { font-size:12px; font-weight:800; color:var(--ink); }
+.lv p { margin:0; font-size:12px; color:var(--muted); line-height:1.45; }
+.lv small { grid-column:2; color:#a47a06; font-size:11px; font-weight:900; }
 .note { color:var(--muted); font-size:12px; padding:10px 18px 14px; }
 footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:16px; color:var(--muted); font-size:12px; }
 </style>
@@ -154,7 +164,16 @@ footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; m
 // Public data only: public/roster (names/photos of members who consented), public/stats (numbers by member id), photos/{id}.
 const FIREBASE = { apiKey: "AIzaSyAI1EaI2OSmwXkbZs5GsO6Ze7jPUk8iumQ", projectId: "badman-live" };
 const BASE = `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents`;
-const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8].map((v) => ({ value: v, label: "ระดับ " + v })); // keep in sync with app/members.ts
+const LEVELS = [
+  { value: 1, icon: "🥚", name: "Baby Bat", th: "ลูกค้างคาวฝึกบิน", desc: "เพิ่งเริ่มจับไม้-หัดตี เสิร์ฟข้ามบ้าง ติดเน็ตบ้าง เน้นออกกำลังกาย เอาเหงื่อ เอาฮาเป็นหลัก", label: "🥚 1 Baby Bat" },
+  { value: 2, icon: "🐣", name: "Tiny Wing", th: "ค้างคาวปีกนุ่ม", desc: "เริ่มตีโดนลูก วิ่งรับลูกที่มาตรงตัวได้ ตีโต้สั้นๆ ได้ 2-3 ไม้", label: "🐣 2 Tiny Wing" },
+  { value: 3, icon: "🏸", name: "Little Bat", th: "ค้างคาวน้อยหัดร่อน", desc: "เริ่มตีโต้กลับได้บ้าง ทิศทางยังไม่แม่นยำมากนัก เริ่มสนุกกับการเล่นกับเพื่อนๆ", label: "🏸 3 Little Bat" },
+  { value: 4, icon: "💨", name: "Bouncing Bat", th: "ค้างคาวดุ๊กดิ๊ก", desc: "วิ่งรับลูกทั่วคอร์ท ขยันวิ่ง มีแรงเยอะ ตีเคลียร์หลังได้บ้าง สายพลัง สายวิ่งสู้ฟัด", label: "💨 4 Bouncing Bat" },
+  { value: 5, icon: "⭐", name: "Junior Badman", th: "แบดแมนฝึกหัด", desc: "ตีโต้แรลลี่ได้ต่อเนื่อง เริ่มวางลูกหยอดหน้าเน็ต มือเบาที่เริ่มเล่นเกมเต็มสนุก", label: "⭐ 5 Junior Badman" },
+  { value: 6, icon: "⚡", name: "Hero in Training", th: "ฮีโร่พร้อมลุย", desc: "เริ่มมีลูกตัด ลูกเซฟ วางทางลูกได้ดีขึ้น เล่นคู่เข้าใจตำแหน่ง ทักษะรอบด้านขึ้น", label: "⚡ 6 Hero in Training" },
+  { value: 7, icon: "🔥", name: "Shadow Striker", th: "ค้างคาวเงา", desc: "ทักษะดี ตีสนุก เล่นทางได้หลากหลาย มีความฟิต คล่องตัว ช่วยแนะนำประคองเพื่อนในทีมได้", label: "🔥 7 Shadow Striker" },
+  { value: 8, icon: "👑", name: "Dark Knight Master", th: "พี่เลี้ยงก็อตแธม", desc: "ประสบการณ์สูง เล่นได้ทุกรูปแบบ คุมเกมได้ดีเยี่ยม เน้นแจกจ่ายลูก ใจดีกับมือใหม่เป็นพิเศษ", label: "👑 8 Dark Knight Master" },
+]; // keep in sync with app/members.ts
 const PAGE = 50;
 
 const $ = (id) => document.getElementById(id);
@@ -212,6 +231,10 @@ function renderRanking() {
     <div id="rows">${rows.length ? rows.slice(0, shown).map(({ m, s }) => `<a class="rank-row" href="${link(m)}"><span class="rank-no">${s.rank}</span>${avatar(m)}<span class="who"><b>${esc(display(m))}</b><small>${esc(m.name ? m.code : "")}${m.level ? (m.name ? " • " : "") + esc(levelLabel(m.level)) : ""} ${formDots(s.recent)}</small></span><span class="nums"><span>${s.points}<small>แต้ม</small></span><span class="opt">${s.games}<small>เกม</small></span><span>${s.winPct}%<small>ชนะ</small></span></span></a>`).join("") : `<div class="empty">${ranked.length ? "ไม่พบสมาชิกที่ค้นหา" : "ยังไม่มีผลการแข่งขัน • อันดับจะขึ้นหลังบันทึกผลเกมในระบบจัดก๊วน"}</div>`}</div>
     ${rows.length > shown ? `<button class="more" id="more">ดูเพิ่มอีก ${Math.min(PAGE, rows.length - shown)} คน</button>` : ""}
     <p class="note">สมาชิกที่ไม่ได้ยินยอมให้แสดงชื่อ จะแสดงเป็นรหัสสมาชิก • นับเฉพาะเกมที่บันทึกผล</p>
+  </section>
+  <section class="panel" aria-label="ระดับฝีมือ">
+    <div class="panel-heading"><div><p class="section-no">BADMAN BEGIN</p><h2>8 ระดับค้างคาวน้อย</h2></div><span>เน้นสนุก ไม่กดดัน! • กดเพื่อดูสมาชิกแต่ละระดับ</span></div>
+    <div class="levels">${LEVELS.map((l) => { const n = [...roster.values()].filter((m) => m.active !== false && m.level === l.value).length; return `<button class="lv" data-level="${level === l.value ? 0 : l.value}" aria-pressed="${level === l.value}"><span class="ic" aria-hidden="true">${l.icon}</span><b><em>LEVEL ${l.value}</em>${esc(l.name)}</b><span>${esc(l.th)}</span><p>${esc(l.desc)}</p>${n ? `<small>${n} คน</small>` : ""}</button>`; }).join("")}</div>
   </section>`;
   hydratePhotos();
 }
@@ -221,7 +244,7 @@ function renderProfile(code) {
   if (!m) { $("view").innerHTML = `<section class="panel"><div class="empty">ไม่พบสมาชิก ${esc(code)}</div></section><a class="back" href="./">← กลับไปหน้า Ranking</a>`; return; }
   const s = stats.members[m.id];
   document.title = `${display(m)} — BADMAN`;
-  const meta = [m.name ? `<span><b>${esc(m.code)}</b></span>` : "", m.level ? `<span>${esc(levelLabel(m.level))}</span>` : "", m.hand ? `<span>${m.hand === "L" ? "ถนัดซ้าย" : "ถนัดขวา"}</span>` : "", m.joined ? `<span>เข้าก๊วน ${esc(thaiDate(m.joined))}</span>` : "", s?.lastDay ? `<span>เล่นล่าสุด ${esc(thaiDate(s.lastDay))}</span>` : ""].join("");
+  const meta = [m.name ? `<span><b>${esc(m.code)}</b></span>` : "", m.level ? `<span>${esc(levelLabel(m.level))} • ${esc(LEVELS.find((l) => l.value === m.level)?.th ?? "")}</span>` : "", m.hand ? `<span>${m.hand === "L" ? "ถนัดซ้าย" : "ถนัดขวา"}</span>` : "", m.joined ? `<span>เข้าก๊วน ${esc(thaiDate(m.joined))}</span>` : "", s?.lastDay ? `<span>เล่นล่าสุด ${esc(thaiDate(s.lastDay))}</span>` : ""].join("");
   const team = (ids) => ids.map((id) => esc(display(who(id)))).join(" + ");
   $("view").innerHTML = `<section class="panel">
     <div class="profile-hero">${avatar(m)}<div>${s ? `<div class="rank-badge">อันดับ <strong>${s.rank}</strong> / ${ranked.length}</div>` : ""}<h2>${esc(display(m))}</h2><div class="meta">${meta}</div></div></div>
@@ -247,7 +270,7 @@ document.addEventListener("input", (e) => {
 });
 document.addEventListener("click", (e) => {
   const c = e.target.closest("[data-level]");
-  if (c) { level = Number(c.dataset.level); shown = PAGE; renderRanking(); return; }
+  if (c) { level = Number(c.dataset.level); shown = PAGE; renderRanking(); if (c.classList.contains("lv")) document.getElementById("rows")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (e.target.id === "more") { shown += PAGE; renderRanking(); }
 });
 window.addEventListener("hashchange", route);
