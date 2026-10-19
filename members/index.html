@@ -221,7 +221,7 @@ const levelLabel = (v) => LEVELS.find((l) => l.value === v)?.label ?? "ยัง
 const lvImg = (v) => LEVELS.some((l) => l.value === v) ? `<img src="../levels/lv${v}.webp" alt="" width="16" height="16" style="border-radius:50%;vertical-align:-3px;background:#fff">` : "";
 const codeNum = (c) => parseInt(String(c).replace(/\D/g, ""), 10) || 0;
 const isLive = (m) => !m.deleted && !m.mergedInto;
-const initial = (m) => (m.name || m.code || "?").trim().charAt(0).toUpperCase();
+const initial = (m) => (m.name || m.code || "?").trim().replace(/^[เแโใไ]+/, "").charAt(0).toUpperCase();
 
 /* ---------- auth (same REST endpoints as the court app) ---------- */
 let auth = null;

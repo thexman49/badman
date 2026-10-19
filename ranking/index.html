@@ -205,7 +205,7 @@ async function getJson(path) { const d = await getDoc(path); return d ? JSON.par
 const who = (id) => roster.get(id);
 const display = (m) => m?.name || m?.code || "สมาชิก";
 function avatar(m, cls = "") {
-  const ch = esc((m?.name || m?.code || "?").trim().charAt(0).toUpperCase());
+  const ch = esc((m?.name || m?.code || "?").trim().replace(/^[เแโใไ]+/, "").charAt(0).toUpperCase());
   return m?.photo ? `<span class="avatar ${cls}" data-photo="${esc(m.id)}">${ch}</span>` : `<span class="avatar ${cls}">${ch}</span>`;
 }
 const io = "IntersectionObserver" in window ? new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { io.unobserve(e.target); fillPhoto(e.target); } }), { rootMargin: "200px" }) : null;

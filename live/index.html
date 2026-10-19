@@ -131,6 +131,23 @@ tr.st-queue td:first-child, tr.st-resting td:first-child { box-shadow:inset 4px 
 .rules div:last-child { border-right:0; }
 .rules b { display:block; font-size:12px; color:var(--gold); }
 .rules span { font-size:13px; color:#d5dfda; }
+/* member photo + level */
+.pav { position:relative; display:inline-grid; place-items:center; flex:0 0 auto; border-radius:50%; background:var(--black); color:var(--gold); font-weight:900; border:2.5px solid var(--gold); box-shadow:0 3px 10px rgba(0,0,0,.18); }
+.pav > img.ph { width:100%; height:100%; border-radius:50%; object-fit:cover; display:block; }
+.pav > img.lv { position:absolute; right:-8px; bottom:-6px; border-radius:50%; background:#fff; border:2px solid var(--gold); object-fit:cover; box-shadow:0 2px 6px rgba(0,0,0,.25); }
+.team { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; }
+.team.solo { grid-template-columns:1fr; }
+.pt { display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; padding:4px 2px; }
+.pt b { font-size:15px; line-height:1.2; overflow-wrap:anywhere; }
+.plv { display:inline-block; background:var(--black); color:var(--gold); border-radius:99px; padding:3px 9px; font-size:11px; font-weight:900; max-width:100%; line-height:1.25; text-align:center; }
+.pth { color:var(--muted); font-size:11px; font-weight:700; }
+.matchup > div.side { padding:10px 6px; min-height:0; }
+.game-list.compact .pt b { font-size:13px; }
+.game-list.compact .plv { font-size:10px; padding:2px 7px; }
+.queue-item > .pav { display:inline-grid; margin-left:2px; flex-direction:initial; }
+.queue-item { min-height:78px; }
+.queue-item .qlv { display:flex; align-items:center; gap:6px; margin-top:4px; flex-wrap:wrap; }
+@media (max-width:520px) { .pt b { font-size:13px; } .plv { font-size:10px; padding:2px 7px; } .pth { display:none; } }
 footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:16px; color:var(--muted); font-size:12px; }
 </style>
 </head>
@@ -231,11 +248,61 @@ const STATE = { playing: "กำลังเล่น", waiting: "รอลง�
 
 let snap = null, failing = false;
 
-function gameCard(g, name) {
-  const side = (ids) => ids.map(name).join('<span class="plus">+</span>');
+// Levels (keep in sync with app/members.ts) and the public roster: member id -> level / consented photo.
+const LEVELS = [
+  { value: 1, name: "Baby Bat", th: "ลูกค้างคาวฝึกบิน" }, { value: 2, name: "Tiny Wing", th: "ค้างคาวปีกนุ่ม" },
+  { value: 3, name: "Little Bat", th: "ค้างคาวน้อยหัดร่อน" }, { value: 4, name: "Bouncing Bat", th: "ค้างคาวดุ๊กดิ๊ก" },
+  { value: 5, name: "Junior Badman", th: "แบดแมนฝึกหัด" }, { value: 6, name: "Hero in Training", th: "ฮีโร่พร้อมลุย" },
+  { value: 7, name: "Shadow Striker", th: "ค้างคาวเงา" }, { value: 8, name: "Dark Knight Master", th: "พี่เลี้ยงก็อตแธม" },
+];
+const levelOf = (v) => LEVELS.find((l) => l.value === v);
+let roster = new Map(), rosterAt = 0;
+const photoData = new Map(), photoLoading = new Set();
+const DOC = (path) => `https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/${path}?key=${FIREBASE.apiKey}`;
+async function loadRoster() {
+  if (!FIREBASE.apiKey || Date.now() - rosterAt < 180000) return;
+  rosterAt = Date.now();
+  try {
+    const r = await fetch(DOC("public/roster"), { cache: "no-store" });
+    if (!r.ok) return;
+    const doc = await r.json();
+    roster = new Map((JSON.parse(doc.fields.json.stringValue).members || []).map((m) => [m.id, m]));
+    render();
+  } catch { /* roster is optional decoration */ }
+}
+function loadPhoto(id) {
+  if (photoData.has(id) || photoLoading.has(id)) return;
+  photoLoading.add(id);
+  fetch(DOC("photos/" + encodeURIComponent(id)), { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    const src = d?.fields?.data?.stringValue;
+    if (src && src.startsWith("data:image/")) {
+      photoData.set(id, src);
+      document.querySelectorAll(`[data-photo="${CSS.escape(id)}"]`).forEach((el) => { el.removeAttribute("data-photo"); el.querySelector(".ini")?.remove(); el.insertAdjacentHTML("afterbegin", `<img class="ph" src="${src}" alt="">`); });
+    }
+  }).catch(() => {}).finally(() => photoLoading.delete(id));
+}
+/** Round photo (or initial) with the level character in the corner. */
+function avatar(p, size) {
+  const m = p?.memberId ? roster.get(p.memberId) : null;
+  const lv = m && levelOf(m.level);
+  const badge = Math.round(size * 0.46);
+  const src = m?.photo ? photoData.get(m.id) : null;
+  if (m?.photo && !src) loadPhoto(m.id);
+  const face = src ? `<img class="ph" src="${src}" alt="">` : `<span class="ini">${esc((p?.name || "?").trim().replace(/^[เแโใไ]+/, "").charAt(0).toUpperCase())}</span>`;
+  return `<span class="pav" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.4)}px"${m?.photo && !src ? ` data-photo="${esc(m.id)}"` : ""}>${face}${lv ? `<img class="lv" src="../levels/lv${lv.value}.webp" alt="" width="${badge}" height="${badge}" style="width:${badge}px;height:${badge}px">` : ""}</span>`;
+}
+function levelTag(p, withThai = true) {
+  const m = p?.memberId ? roster.get(p.memberId) : null;
+  const lv = m && levelOf(m.level);
+  return lv ? `<span class="plv">Lv.${lv.value} ${esc(lv.name)}</span>${withThai ? `<span class="pth">${esc(lv.th)}</span>` : ""}` : "";
+}
+
+function gameCard(g, name, P) {
+  const tile = (id) => { const p = P.get(id); return `<div class="pt">${avatar(p, g.status === "ended" ? 52 : 68)}<b>${name(id)}</b>${levelTag(p, g.status !== "ended")}</div>`; };
+  const side = (ids) => `<div class="team${ids.length < 2 ? " solo" : ""}">${ids.map(tile).join("")}</div>`;
   const right = g.status === "playing" ? (g.startedAt ? `${mins(g.startedAt)} นาที` : "กำลังเล่น")
     : g.status === "waiting" ? "รอลงสนาม" : `${g.shuttles} ลูก${g.endedAt ? " • " + clock(g.endedAt) : ""}`;
-  return `<article class="game-card ${g.status}"><div class="game-title"><span>เกมที่</span><strong>${g.number}</strong><em class="status-dot ${g.status}">${right}</em></div><div class="matchup"><div>${side(g.playerIds.slice(0, 2))}</div><b>VS</b><div>${side(g.playerIds.slice(2))}</div></div></article>`;
+  return `<article class="game-card ${g.status}"><div class="game-title"><span>เกมที่</span><strong>${g.number}</strong><em class="status-dot ${g.status}">${right}</em></div><div class="matchup"><div class="side">${side(g.playerIds.slice(0, 2))}</div><b>VS</b><div class="side">${side(g.playerIds.slice(2))}</div></div></article>`;
 }
 
 function render() {
@@ -257,13 +324,13 @@ function render() {
 
   const playing = snap.games.filter((g) => g.status === "playing").sort((a, b) => a.number - b.number);
   $("playingNote").textContent = playing.length ? `${playing.length} เกม` : "";
-  $("playing").innerHTML = playing.length ? playing.map((g) => gameCard(g, name)).join("") : '<div class="empty"><b>ยังไม่มีเกมในสนาม</b><span>เกมที่กำลังเล่นจะขึ้นตรงนี้</span></div>';
+  $("playing").innerHTML = playing.length ? playing.map((g) => gameCard(g, name, P)).join("") : '<div class="empty"><b>ยังไม่มีเกมในสนาม</b><span>เกมที่กำลังเล่นจะขึ้นตรงนี้</span></div>';
   const waiting = snap.games.filter((g) => g.status === "waiting").sort((a, b) => a.number - b.number);
-  $("next").innerHTML = waiting.length ? waiting.map((g) => gameCard(g, name)).join("") : '<div class="empty"><span>ยังไม่มีเกมที่จัดรอไว้</span></div>';
+  $("next").innerHTML = waiting.length ? waiting.map((g) => gameCard(g, name, P)).join("") : '<div class="empty"><span>ยังไม่มีเกมที่จัดรอไว้</span></div>';
 
   const q = snap.queue.map((id) => P.get(id)).filter(Boolean);
   $("queue").innerHTML = q.length
-    ? q.map((p, i) => `<div class="queue-item"><span class="queue-number">${i + 1}</span><span><b>${esc(p.name)}</b><small>เล่นแล้ว ${p.games} เกม${p.waitSince ? ` • <em class="queue-wait">รอ ${mins(p.waitSince)} นาที</em>` : ""}</small></span></div>`).join("")
+    ? q.map((p, i) => `<div class="queue-item"><span class="queue-number">${i + 1}</span>${avatar(p, 54)}<span><b>${esc(p.name)}</b><span class="qlv">${levelTag(p)}</span><small>เล่นแล้ว ${p.games} เกม${p.waitSince ? ` • <em class="queue-wait">รอ ${mins(p.waitSince)} นาที</em>` : ""}</small></span></div>`).join("")
     : '<div class="empty"><b>ไม่มีคนรอคิว</b><span>ทุกคนอยู่ในเกมหรือพักอยู่</span></div>';
 
   const term = $("q").value.trim().toLowerCase();
@@ -280,7 +347,7 @@ function render() {
     const since = cs.since ? new Date(cs.since + "T12:00:00+07:00").toLocaleDateString("th-TH", { day: "numeric", month: "short", year: "numeric" }) : "";
     $("clubStats").innerHTML = `<header><b>สถิติก๊วน BADMAN</b><span>${since ? "ตั้งแต่ " + since + " • " : ""}${cs.nights} คืน</span></header><div class="tiles"><div><small>สมาชิก</small><strong>${cs.members.toLocaleString()}</strong></div><div><small>เกมทั้งหมด</small><strong>${cs.games.toLocaleString()}</strong></div><div><small>ผลเสมอ</small><strong class="gold">${cs.drawPct}%</strong></div><div><small>ลูกแบดที่ใช้</small><strong>${cs.shuttles.toLocaleString()}</strong></div><div><small>เฉลี่ยต่อคืน</small><strong>${Math.round(cs.games / Math.max(1, cs.nights))}</strong></div></div>`;
   }
-  $("done").innerHTML = done.length ? done.map((g) => gameCard(g, name)).join("") : '<div class="empty"><span>ยังไม่มีเกมที่จบ</span></div>';
+  $("done").innerHTML = done.length ? done.map((g) => gameCard(g, name, P)).join("") : '<div class="empty"><span>ยังไม่มีเกมที่จบ</span></div>';
   renderStatus();
 }
 
@@ -329,7 +396,9 @@ if (new URLSearchParams(location.search).has("demo")) {
   render(); $("stat").textContent = "ตัวอย่างข้อมูล (demo)"; $("dot").className = "dot live";
 } else {
   load();
+  loadRoster();
   setInterval(load, POLL_MS);
+  setInterval(loadRoster, 180000);
   setInterval(() => snap && render(), 30000);
 }
 </script>
