@@ -218,6 +218,7 @@ const PHOTO_PX = 320;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const levelLabel = (v) => LEVELS.find((l) => l.value === v)?.label ?? "ยังไม่ระบุระดับ";
+const lvImg = (v) => LEVELS.some((l) => l.value === v) ? `<img src="../levels/lv${v}.webp" alt="" width="16" height="16" style="border-radius:50%;vertical-align:-3px;background:#fff">` : "";
 const codeNum = (c) => parseInt(String(c).replace(/\D/g, ""), 10) || 0;
 const isLive = (m) => !m.deleted && !m.mergedInto;
 const initial = (m) => (m.name || m.code || "?").trim().charAt(0).toUpperCase();
@@ -310,7 +311,7 @@ function render() {
   $("list").innerHTML = rows.length ? rows.map((m) => {
     const s = stats[m.id];
     const st = m.status || "active";
-    return `<button class="row ${st === "closed" ? "closed" : ""}" data-id="${esc(m.id)}"><span class="avatar">${avatarHtml(m)}</span><span style="min-width:0"><span class="name">${esc(m.name)}</span><small>${esc(m.code)} • ${esc(levelLabel(m.level))}${s ? ` • ${s.games} เกม • อันดับ ${s.rank}` : ""}${m.line ? " • LINE " + esc(m.line) : ""}</small></span><span class="tags">${m.consent ? '<span class="tag ok">แสดงบนเว็บ</span>' : '<span class="tag no">ไม่แสดงชื่อ</span>'}${st !== "active" ? `<span class="tag ${st}">${st === "paused" ? "พัก" : "ปิด"}</span>` : ""}</span></button>`;
+    return `<button class="row ${st === "closed" ? "closed" : ""}" data-id="${esc(m.id)}"><span class="avatar">${avatarHtml(m)}</span><span style="min-width:0"><span class="name">${esc(m.name)}</span><small>${esc(m.code)} • ${lvImg(m.level)} ${esc(levelLabel(m.level))}${s ? ` • ${s.games} เกม • อันดับ ${s.rank}` : ""}${m.line ? " • LINE " + esc(m.line) : ""}</small></span><span class="tags">${m.consent ? '<span class="tag ok">แสดงบนเว็บ</span>' : '<span class="tag no">ไม่แสดงชื่อ</span>'}${st !== "active" ? `<span class="tag ${st}">${st === "paused" ? "พัก" : "ปิด"}</span>` : ""}</span></button>`;
   }).join("") : `<div class="empty">${q ? "ไม่พบสมาชิกที่ค้นหา" : "ยังไม่มีสมาชิก • สมาชิกจะมาจากระบบจัดก๊วนเมื่อเปิด LIVE หรือกดเพิ่มที่นี่"}</div>`;
 }
 

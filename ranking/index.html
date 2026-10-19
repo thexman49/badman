@@ -92,6 +92,9 @@ h2 { margin:0; font-size:23px; letter-spacing:-.03em; }
 .more { display:block; width:100%; border:0; border-top:1px solid var(--line); background:#faf8f1; padding:12px; font-weight:800; cursor:pointer; color:var(--muted); }
 /* profile */
 .profile-hero { display:grid; grid-template-columns:auto 1fr; gap:20px; align-items:center; padding:22px 20px; background:linear-gradient(125deg,#080808 0%,#161510 62%,#2b2411 100%); color:white; }
+.profile-hero { position:relative; }
+.hero-lv { position:absolute; right:16px; bottom:0; width:120px; height:120px; border-radius:14px 14px 0 0; background:#fff; object-fit:cover; }
+@media (max-width:760px) { .hero-lv { display:none; } }
 .profile-hero .avatar { width:132px; height:132px; font-size:46px; border-width:3px; box-shadow:0 0 0 5px rgba(233,185,47,.15); }
 .profile-hero h2 { font-size:clamp(26px,5vw,40px); line-height:1; }
 .profile-hero .meta { margin-top:8px; color:#d8d2c0; font-size:13px; display:flex; flex-wrap:wrap; gap:6px 14px; }
@@ -122,11 +125,15 @@ h3 { margin:0 0 10px; font-size:14px; letter-spacing:.06em; color:#a47a06; font-
 .partner > span:not(.avatar) { flex:1; font-weight:800; min-width:0; }
 .partner em { font-style:normal; color:var(--muted); font-size:12px; }
 .back { display:inline-block; margin-top:14px; font-weight:800; text-decoration:none; color:var(--muted); }
+.lvi { border-radius:50%; vertical-align:-4px; background:#fff; object-fit:cover; }
+.chip .lvi { margin-right:3px; }
 .levels { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; padding:14px 16px 16px; }
 .lv { display:grid; grid-template-columns:44px 1fr; gap:4px 12px; align-items:start; border:1px solid var(--line); border-radius:14px; padding:12px; background:#fbfaf5; text-align:left; cursor:pointer; }
 .lv:hover { border-color:var(--gold); }
 .lv[aria-pressed="true"] { border-color:var(--black); box-shadow:inset 0 0 0 1px var(--black); }
-.lv .ic { grid-row:span 3; width:44px; height:44px; border-radius:12px; background:var(--black); display:grid; place-items:center; font-size:22px; }
+.lv { grid-template-columns:96px 1fr; }
+.lv .ic { grid-row:span 4; width:96px; height:96px; border-radius:14px; background:#fff; border:1px solid var(--line); overflow:hidden; }
+.lv .ic img { width:100%; height:100%; object-fit:cover; display:block; }
 .lv b { font-size:14px; }
 .lv b em { font-style:normal; color:#a47a06; font-size:11px; letter-spacing:.06em; display:block; }
 .lv span { font-size:12px; font-weight:800; color:var(--ink); }
@@ -178,7 +185,9 @@ const PAGE = 50;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-const levelLabel = (v) => LEVELS.find((l) => l.value === v)?.label ?? "";
+const levelOf = (v) => LEVELS.find((l) => l.value === v);
+const levelLabel = (v) => { const l = levelOf(v); return l ? `Lv.${l.value} ${l.name}` : ""; };
+const lvImg = (v, px = 18) => levelOf(v) ? `<img class="lvi" src="../levels/lv${v}.webp" alt="" width="${px}" height="${px}" loading="lazy">` : "";
 const thaiDate = (d, opt = { day: "numeric", month: "short", year: "2-digit" }) => d ? new Date(d + "T12:00:00+07:00").toLocaleDateString("th-TH", opt) : "";
 
 let roster = new Map(), byCode = new Map(), stats = { members: {}, club: null }, ranked = [];
@@ -227,14 +236,14 @@ function renderRanking() {
     <div class="panel-heading"><div><p class="section-no">RANKING</p><h2>อันดับสมาชิก</h2></div><span>${stats.updatedAt ? "อัปเดต " + new Date(stats.updatedAt).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }) + " น." : ""}</span></div>
     ${podium.length ? `<div class="podium">${pod(podium[1], 1)}${pod(podium[0], 0)}${pod(podium[2], 2)}</div>` : ""}
     <div class="toolbar"><input id="q" placeholder="ค้นหาชื่อหรือรหัสสมาชิก" value="${esc(term)}" autocomplete="off" aria-label="ค้นหา">
-      ${usedLevels.length ? `<div class="chips" role="group" aria-label="ระดับ"><button class="chip" data-level="0" aria-pressed="${!level}">ทุกระดับ</button>${usedLevels.map((l) => `<button class="chip" data-level="${l}" aria-pressed="${level === l}">${esc(levelLabel(l))}</button>`).join("")}</div>` : ""}</div>
-    <div id="rows">${rows.length ? rows.slice(0, shown).map(({ m, s }) => `<a class="rank-row" href="${link(m)}"><span class="rank-no">${s.rank}</span>${avatar(m)}<span class="who"><b>${esc(display(m))}</b><small>${esc(m.name ? m.code : "")}${m.level ? (m.name ? " • " : "") + esc(levelLabel(m.level)) : ""} ${formDots(s.recent)}</small></span><span class="nums"><span>${s.points}<small>แต้ม</small></span><span class="opt">${s.games}<small>เกม</small></span><span>${s.winPct}%<small>ชนะ</small></span></span></a>`).join("") : `<div class="empty">${ranked.length ? "ไม่พบสมาชิกที่ค้นหา" : "ยังไม่มีผลการแข่งขัน • อันดับจะขึ้นหลังบันทึกผลเกมในระบบจัดก๊วน"}</div>`}</div>
+      ${usedLevels.length ? `<div class="chips" role="group" aria-label="ระดับ"><button class="chip" data-level="0" aria-pressed="${!level}">ทุกระดับ</button>${usedLevels.map((l) => `<button class="chip" data-level="${l}" aria-pressed="${level === l}">${lvImg(l)}${esc(levelLabel(l))}</button>`).join("")}</div>` : ""}</div>
+    <div id="rows">${rows.length ? rows.slice(0, shown).map(({ m, s }) => `<a class="rank-row" href="${link(m)}"><span class="rank-no">${s.rank}</span>${avatar(m)}<span class="who"><b>${esc(display(m))}</b><small>${esc(m.name ? m.code : "")}${m.level ? (m.name ? " • " : "") + lvImg(m.level, 16) + " " + esc(levelLabel(m.level)) : ""} ${formDots(s.recent)}</small></span><span class="nums"><span>${s.points}<small>แต้ม</small></span><span class="opt">${s.games}<small>เกม</small></span><span>${s.winPct}%<small>ชนะ</small></span></span></a>`).join("") : `<div class="empty">${ranked.length ? "ไม่พบสมาชิกที่ค้นหา" : "ยังไม่มีผลการแข่งขัน • อันดับจะขึ้นหลังบันทึกผลเกมในระบบจัดก๊วน"}</div>`}</div>
     ${rows.length > shown ? `<button class="more" id="more">ดูเพิ่มอีก ${Math.min(PAGE, rows.length - shown)} คน</button>` : ""}
     <p class="note">สมาชิกที่ไม่ได้ยินยอมให้แสดงชื่อ จะแสดงเป็นรหัสสมาชิก • นับเฉพาะเกมที่บันทึกผล</p>
   </section>
   <section class="panel" aria-label="ระดับฝีมือ">
     <div class="panel-heading"><div><p class="section-no">BADMAN BEGIN</p><h2>8 ระดับค้างคาวน้อย</h2></div><span>เน้นสนุก ไม่กดดัน! • กดเพื่อดูสมาชิกแต่ละระดับ</span></div>
-    <div class="levels">${LEVELS.map((l) => { const n = [...roster.values()].filter((m) => m.active !== false && m.level === l.value).length; return `<button class="lv" data-level="${level === l.value ? 0 : l.value}" aria-pressed="${level === l.value}"><span class="ic" aria-hidden="true">${l.icon}</span><b><em>LEVEL ${l.value}</em>${esc(l.name)}</b><span>${esc(l.th)}</span><p>${esc(l.desc)}</p>${n ? `<small>${n} คน</small>` : ""}</button>`; }).join("")}</div>
+    <div class="levels">${LEVELS.map((l) => { const n = [...roster.values()].filter((m) => m.active !== false && m.level === l.value).length; return `<button class="lv" data-level="${level === l.value ? 0 : l.value}" aria-pressed="${level === l.value}"><span class="ic" aria-hidden="true"><img src="../levels/full${l.value}.webp" alt="" width="96" height="96" loading="lazy"></span><b><em>LEVEL ${l.value}</em>${esc(l.name)}</b><span>${esc(l.th)}</span><p>${esc(l.desc)}</p>${n ? `<small>${n} คน</small>` : ""}</button>`; }).join("")}</div>
   </section>`;
   hydratePhotos();
 }
@@ -244,10 +253,10 @@ function renderProfile(code) {
   if (!m) { $("view").innerHTML = `<section class="panel"><div class="empty">ไม่พบสมาชิก ${esc(code)}</div></section><a class="back" href="./">← กลับไปหน้า Ranking</a>`; return; }
   const s = stats.members[m.id];
   document.title = `${display(m)} — BADMAN`;
-  const meta = [m.name ? `<span><b>${esc(m.code)}</b></span>` : "", m.level ? `<span>${esc(levelLabel(m.level))} • ${esc(LEVELS.find((l) => l.value === m.level)?.th ?? "")}</span>` : "", m.hand ? `<span>${m.hand === "L" ? "ถนัดซ้าย" : "ถนัดขวา"}</span>` : "", m.joined ? `<span>เข้าก๊วน ${esc(thaiDate(m.joined))}</span>` : "", s?.lastDay ? `<span>เล่นล่าสุด ${esc(thaiDate(s.lastDay))}</span>` : ""].join("");
+  const meta = [m.name ? `<span><b>${esc(m.code)}</b></span>` : "", m.level ? `<span>${lvImg(m.level, 22)} ${esc(levelLabel(m.level))} • ${esc(levelOf(m.level)?.th ?? "")}</span>` : "", m.hand ? `<span>${m.hand === "L" ? "ถนัดซ้าย" : "ถนัดขวา"}</span>` : "", m.joined ? `<span>เข้าก๊วน ${esc(thaiDate(m.joined))}</span>` : "", s?.lastDay ? `<span>เล่นล่าสุด ${esc(thaiDate(s.lastDay))}</span>` : ""].join("");
   const team = (ids) => ids.map((id) => esc(display(who(id)))).join(" + ");
   $("view").innerHTML = `<section class="panel">
-    <div class="profile-hero">${avatar(m)}<div>${s ? `<div class="rank-badge">อันดับ <strong>${s.rank}</strong> / ${ranked.length}</div>` : ""}<h2>${esc(display(m))}</h2><div class="meta">${meta}</div></div></div>
+    <div class="profile-hero">${avatar(m)}<div>${s ? `<div class="rank-badge">อันดับ <strong>${s.rank}</strong> / ${ranked.length}</div>` : ""}<h2>${esc(display(m))}</h2><div class="meta">${meta}</div></div>${m.level ? `<img class="hero-lv" src="../levels/full${m.level}.webp" alt="${esc(levelLabel(m.level))}">` : ""}</div>
     ${s ? `<div class="tiles"><div><small>แต้ม</small><strong>${s.points}</strong></div><div><small>เกม</small><strong>${s.games}</strong></div><div><small>ชนะ</small><strong class="w">${s.wins}</strong></div><div><small>เสมอ / แพ้</small><strong>${s.draws}<span style="color:var(--muted)"> / </span><span class="l">${s.losses}</span></strong></div><div><small>อัตราชนะ</small><strong>${s.winPct}%</strong></div></div>
     <div class="split"><section><h3>เกมล่าสุด</h3>${s.recent.length ? s.recent.map((g) => `<div class="game"><span class="res ${g.r}">${g.r === "W" ? "ชนะ" : g.r === "L" ? "แพ้" : "เสมอ"}</span><span>${g.p ? `คู่กับ <b>${team([g.p])}</b>` : "<b>—</b>"}<small>พบ ${team(g.o.filter(Boolean)) || "—"}</small></span><time>${esc(thaiDate(g.d, { day: "numeric", month: "short" }))}</time></div>`).join("") : '<div class="empty">ยังไม่มีเกมที่บันทึกผล</div>'}</section>
     <section><h3>คู่ที่เล่นด้วยบ่อย</h3>${s.partners.length ? s.partners.map((p) => { const pm = who(p.id); return `<a class="partner" href="${link(pm)}">${avatar(pm)}<span>${esc(display(pm))}</span><em>${p.n} เกม</em></a>`; }).join("") : '<div class="empty" style="padding:14px">ยังไม่มีข้อมูล</div>'}</section></div>` : '<div class="empty">ยังไม่มีผลการแข่งขันที่บันทึกไว้</div>'}
