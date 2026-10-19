@@ -88,6 +88,30 @@ dialog::backdrop { background:rgba(15,15,14,.55); }
 .dlg-foot div { display:flex; gap:8px; flex-wrap:wrap; }
 .stats-line { font-size:13px; color:var(--muted); }
 .stats-line b { color:var(--ink); }
+.tabs { display:flex; padding:3px; gap:2px; border-radius:10px; background:#e7e2d4; margin-top:16px; }
+.tabs button { flex:1; border:0; border-radius:8px; background:transparent; padding:11px 8px; color:var(--muted); font-size:15px; font-weight:900; cursor:pointer; }
+.tabs button[aria-selected="true"] { background:var(--black); color:var(--gold); }
+.rgrid { display:grid; grid-template-columns:minmax(0,340px) minmax(0,1fr); gap:16px; align-items:start; margin-top:16px; }
+@media (max-width:900px) { .rgrid { grid-template-columns:1fr; } }
+.rgrid .panel { margin-top:0; }
+.rform { padding:16px; display:grid; gap:10px; }
+.rform .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.slotrow { display:grid; grid-template-columns:1fr 1fr 40px; gap:8px; align-items:center; }
+.slotrow button { height:40px; border:1px solid #efc2b0; background:#fff6f1; color:var(--red); border-radius:8px; font-weight:900; cursor:pointer; }
+.rlist button { display:flex; align-items:center; gap:10px; width:100%; text-align:left; padding:11px 16px; border:0; border-bottom:1px solid #eeeadf; background:none; cursor:pointer; }
+.rlist button[aria-current="true"] { background:#fff9e5; }
+.rlist button > span:first-child { flex:1; display:flex; flex-direction:column; }
+.rlist small { color:var(--muted); font-size:12px; }
+.st { border-radius:99px; padding:3px 9px; font-size:11px; font-weight:900; white-space:nowrap; }
+.st.draft { background:#ebe7dc; color:#4c4a42; } .st.open { background:#e3f1ea; color:#0f6843; } .st.closed { background:#fff0b7; color:#725300; } .st.done { background:#ecefeb; color:#62665f; }
+.rhead { padding:14px 18px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; }
+.rhead .acts { display:flex; flex-wrap:wrap; gap:8px; }
+.etable { width:100%; border-collapse:collapse; }
+.etable th, .etable td { text-align:left; padding:9px 14px; border-bottom:1px solid #eeeadf; font-size:14px; vertical-align:top; }
+.etable th { font-size:11px; letter-spacing:.05em; color:var(--muted); background:#fafbf8; }
+.etable tr.wait td { background:#fff8f1; }
+.etable td.n { font-weight:900; color:var(--muted); white-space:nowrap; }
+.wrapx { overflow-x:auto; }
 .toast { position:fixed; left:50%; bottom:calc(18px + env(safe-area-inset-bottom)); transform:translateX(-50%); background:var(--black); color:var(--gold); padding:10px 16px; border-radius:10px; font-weight:800; box-shadow:0 6px 20px rgba(0,0,0,.3); z-index:10; max-width:calc(100vw - 32px); }
 .toast.bad { color:#ffb59a; }
 footer { display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-top:16px; color:var(--muted); font-size:12px; }
@@ -116,6 +140,25 @@ footer a { color:var(--muted); }
     <button class="btn dark" id="loginBtn">เข้าสู่ระบบ</button>
   </section>
 
+  <div class="tabs" id="tabs" role="tablist" hidden><button role="tab" aria-selected="true" data-tab="members">สมาชิก</button><button role="tab" aria-selected="false" data-tab="rounds">รอบลงชื่อ</button></div>
+  <div class="rgrid" id="roundsPanel" hidden>
+    <div style="display:grid;gap:16px">
+      <section class="panel">
+        <div class="panel-heading"><div><p class="section-no">ROUND</p><h2 id="rfTitle">สร้างรอบใหม่</h2></div></div>
+        <div class="rform">
+          <label class="f">วันที่ (วันก๊วน)<input class="t" type="date" id="rDate"></label>
+          <div class="two"><label class="f">เริ่ม<input class="t" type="time" id="rStart" value="20:00"></label><label class="f">เลิก<input class="t" type="time" id="rEnd" value="01:00"></label></div>
+          <div class="f" style="gap:8px">ช่วงเวลาให้เลือก (เวลามา / รับกี่คน)<div id="rSlots" style="display:grid;gap:8px"></div><button type="button" class="btn" id="rAddSlot">+ เพิ่มช่วงเวลา</button></div>
+          <div class="two"><label class="f">พาเพื่อนได้ไม่เกิน<input class="t" type="number" min="0" max="5" id="rGuests" value="2"></label><label class="f">ปิดรับ / ยกเลิกได้ถึง<input class="t" type="datetime-local" id="rClose"></label></div>
+          <label class="f">ค่าใช้จ่าย (แสดงในหน้าลงชื่อ)<input class="t" id="rFee" value="100 บาท/คน + ลูกละ 28 บาท" maxlength="80"></label>
+          <div class="err" id="rErr"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn dark" id="rSave">บันทึกรอบ</button><button type="button" class="btn" id="rNew" hidden>ล้างฟอร์ม</button></div>
+        </div>
+      </section>
+      <section class="panel"><div class="panel-heading"><div><p class="section-no">ROUNDS</p><h2>รอบทั้งหมด</h2></div></div><div class="rlist" id="rList"><div class="empty">กำลังโหลด…</div></div></section>
+    </div>
+    <section class="panel" id="rDetail"><div class="empty">เลือกรอบทางซ้าย หรือสร้างรอบใหม่</div></section>
+  </div>
   <section class="panel" id="main" hidden>
     <div class="panel-heading">
       <div><p class="section-no">MEMBERS</p><h2>สมาชิกก๊วน</h2></div>
@@ -282,7 +325,7 @@ function avatarHtml(m) {
   const src = photos.get(m.id);
   return src ? `<img src="${src}" alt="">` : esc(initial(m));
 }
-function showLogin() { $("login").hidden = false; $("main").hidden = true; $("who").hidden = true; }
+function showLogin() { $("login").hidden = false; $("main").hidden = true; $("who").hidden = true; $("tabs").hidden = true; $("roundsPanel").hidden = true; }
 
 async function loadAll() {
   $("list").innerHTML = '<div class="empty">กำลังโหลด…</div>';
@@ -540,10 +583,177 @@ $("password").addEventListener("keydown", (e) => { if (e.key === "Enter") doLogi
 
 async function start() {
   if (!auth) { showLogin(); return; }
-  $("login").hidden = true; $("main").hidden = false; $("who").hidden = false; $("whoEmail").textContent = auth.email;
+  $("login").hidden = true; $("main").hidden = false; $("who").hidden = false; $("tabs").hidden = false; $("whoEmail").textContent = auth.email;
+  showTab(currentTab);
   try { await loadAll(); }
   catch (e) { $("list").innerHTML = `<div class="empty err">${esc(e.message)}</div>`; }
 }
+/* ================= sign-up rounds ================= */
+const ROOT_DOCS = `projects/${FIREBASE.projectId}/databases/(default)/documents`;
+let currentTab = "members", rounds = [], selRound = null, selEntries = [], selNotes = new Map(), rosterPub = new Map(), delArmed = null;
+const pad = (n) => String(n).padStart(2, "0");
+function nextFriday() { const d = new Date(Date.now() + 7 * 3600e3); const add = (5 - d.getUTCDay() + 7) % 7; d.setUTCDate(d.getUTCDate() + add); return d.toISOString().slice(0, 10); }
+const thaiDay = (day) => new Date(day + "T12:00:00+07:00").toLocaleDateString("th-TH", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+const thaiWhen = (iso) => new Date(iso).toLocaleString("th-TH", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" });
+const STATUS = { draft: "ร่าง (ยังไม่เปิด)", open: "เปิดรับอยู่", closed: "ปิดรับแล้ว", done: "จบแล้ว" };
+function fv(v) {
+  if (!v) return null;
+  if ("stringValue" in v) return v.stringValue; if ("integerValue" in v) return Number(v.integerValue); if ("doubleValue" in v) return v.doubleValue;
+  if ("booleanValue" in v) return v.booleanValue; if ("timestampValue" in v) return v.timestampValue; if ("nullValue" in v) return null;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(fv);
+  return null;
+}
+async function listTyped(path) {
+  const out = []; let page = "";
+  do {
+    const b = await call("GET", `${path}?pageSize=300${page ? "&pageToken=" + encodeURIComponent(page) : ""}`);
+    for (const d of b?.documents ?? []) out.push({ id: d.name.split("/").pop(), ...Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, fv(v)])) });
+    page = b?.nextPageToken ?? "";
+  } while (page);
+  return out;
+}
+function roundCfg(r) { let c = {}; try { c = JSON.parse(r.json || "{}"); } catch {} return { slots: c.slots || [], start: c.start || "20:00", end: c.end || "01:00", fee: c.fee || "" }; }
+
+function showTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll("#tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === tab)));
+  $("main").hidden = tab !== "members";
+  $("roundsPanel").hidden = tab !== "rounds";
+  if (tab === "rounds") loadRounds().catch((e) => toast(e.message, true));
+}
+$("tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
+
+function slotRows(slots) {
+  $("rSlots").innerHTML = slots.map((sl, i) => `<div class="slotrow"><input class="t" type="time" data-st="${i}" value="${esc(sl.time)}" aria-label="เวลามา"><input class="t" type="number" min="1" max="200" data-sc="${i}" value="${sl.cap}" aria-label="รับกี่คน"><button type="button" data-sdel="${i}" aria-label="ลบช่วงนี้">×</button></div>`).join("");
+}
+function readSlots() {
+  return [...$("rSlots").querySelectorAll(".slotrow")].map((row) => ({ time: row.querySelector("[data-st]").value, cap: Number(row.querySelector("[data-sc]").value) || 0 })).filter((x) => x.time);
+}
+function fillForm(r) {
+  const day = r ? r.id : nextFriday();
+  const cfg = r ? roundCfg(r) : { slots: [{ time: "20:00", cap: 16 }, { time: "21:00", cap: 8 }, { time: "22:00", cap: 16 }], start: "20:00", end: "01:00", fee: "100 บาท/คน + ลูกละ 28 บาท" };
+  $("rfTitle").textContent = r ? `แก้ไขรอบ ${thaiDay(r.id)}` : "สร้างรอบใหม่";
+  $("rDate").value = day; $("rDate").disabled = Boolean(r);
+  $("rStart").value = cfg.start; $("rEnd").value = cfg.end; $("rFee").value = cfg.fee;
+  $("rGuests").value = r ? r.maxGuests ?? 2 : 2;
+  const close = r?.closeAt ? new Date(new Date(r.closeAt).getTime() + 7 * 3600e3).toISOString().slice(0, 16) : `${day}T19:00`;
+  $("rClose").value = close;
+  slotRows(cfg.slots);
+  $("rNew").hidden = !r; $("rErr").textContent = "";
+}
+$("rSlots").addEventListener("click", (e) => { const b = e.target.closest("[data-sdel]"); if (!b) return; const sl = readSlots(); sl.splice(Number(b.dataset.sdel), 1); slotRows(sl); });
+$("rAddSlot").addEventListener("click", () => { const sl = readSlots(); const last = sl[sl.length - 1]; const h = last ? (Number(last.time.slice(0, 2)) + 1) % 24 : 20; sl.push({ time: `${pad(h)}:00`, cap: 8 }); slotRows(sl); });
+$("rNew").addEventListener("click", () => fillForm(null));
+
+async function saveRound(statusOverride) {
+  const day = $("rDate").value;
+  const slots = readSlots().sort((a, b) => a.time.localeCompare(b.time));
+  const closeLocal = $("rClose").value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("เลือกวันที่");
+  if (!slots.length || slots.some((x) => x.cap < 1)) throw new Error("ต้องมีช่วงเวลาอย่างน้อย 1 ช่วง และรับอย่างน้อย 1 คน");
+  if (new Set(slots.map((x) => x.time)).size !== slots.length) throw new Error("มีช่วงเวลาซ้ำกัน");
+  if (!closeLocal) throw new Error("ตั้งเวลาปิดรับ");
+  const existing = rounds.find((r) => r.id === day);
+  const status = statusOverride || existing?.status || "draft";
+  const closeAt = new Date(closeLocal + ":00+07:00").toISOString();
+  const json = JSON.stringify({ slots, start: $("rStart").value, end: $("rEnd").value, fee: $("rFee").value.trim() });
+  const body = { fields: {
+    status: { stringValue: status }, closeAt: { timestampValue: closeAt }, maxGuests: { integerValue: String(Math.max(0, Math.min(5, Number($("rGuests").value) || 0))) },
+    slotTimes: { arrayValue: { values: slots.map((x) => ({ stringValue: x.time })) } }, json: { stringValue: json }, updatedAt: { timestampValue: new Date().toISOString() },
+  } };
+  await call("PATCH", `rounds/${day}`, body);
+  return day;
+}
+$("rSave").addEventListener("click", async () => {
+  $("rErr").textContent = ""; $("rSave").disabled = true;
+  try { const day = await saveRound(); await loadRounds(day); toast("บันทึกรอบแล้ว"); }
+  catch (e) { $("rErr").textContent = e.message; }
+  finally { $("rSave").disabled = false; }
+});
+
+async function loadRounds(selectId) {
+  const [rs, roster] = await Promise.all([listTyped("rounds"), call("GET", "public/roster").catch(() => null)]);
+  rounds = rs.sort((a, b) => b.id.localeCompare(a.id));
+  try { rosterPub = new Map((roster ? JSON.parse(roster.fields.json.stringValue).members : []).map((m) => [m.id, m])); } catch { rosterPub = new Map(); }
+  const id = selectId || selRound?.id || rounds.find((r) => r.status === "open")?.id || rounds[0]?.id;
+  $("rList").innerHTML = rounds.length ? rounds.map((r) => `<button data-round="${esc(r.id)}" aria-current="${r.id === id}"><span><b>${esc(thaiDay(r.id))}</b><small>${esc(roundCfg(r).slots.map((x) => `${x.time}·${x.cap}`).join("  "))}</small></span><span class="st ${esc(r.status)}">${esc(STATUS[r.status] || r.status)}</span></button>`).join("") : `<div class="empty">ยังไม่มีรอบ • สร้างรอบแรกทางด้านบน</div>`;
+  if (id) await selectRound(id); else { selRound = null; $("rDetail").innerHTML = `<div class="empty">ยังไม่มีรอบ</div>`; fillForm(null); }
+}
+$("rList").addEventListener("click", (e) => { const b = e.target.closest("[data-round]"); if (b) loadRounds(b.dataset.round).catch((x) => toast(x.message, true)); });
+
+function standingsOf(r, list) {
+  const cfg = roundCfg(r);
+  const by = new Map(cfg.slots.map((x) => [x.time, { ...x, used: 0, waitPeople: 0, list: [] }]));
+  for (const e of [...list].sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))) {
+    const s = by.get(e.slot) || [...by.values()][0];
+    if (!s) continue;
+    const size = 1 + (e.guests?.length || 0);
+    if (s.waitPeople === 0 && s.used + size <= s.cap) { e.state = "ok"; e.no = s.used + 1; s.used += size; }
+    else { e.state = "wait"; e.no = s.waitPeople + 1; s.waitPeople += size; }
+    s.list.push(e);
+  }
+  return [...by.values()];
+}
+async function selectRound(id) {
+  selRound = rounds.find((r) => r.id === id) || null;
+  if (!selRound) return;
+  fillForm(selRound);
+  const [ents, notes] = await Promise.all([listTyped(`rounds/${id}/entries`), listTyped(`rounds/${id}/notes`).catch(() => [])]);
+  selEntries = ents; selNotes = new Map(notes.map((n) => [n.id, n.text]));
+  renderDetail();
+}
+function renderDetail() {
+  const r = selRound;
+  const st = standingsOf(r, selEntries);
+  const total = st.reduce((t, s) => t + s.used, 0), cap = st.reduce((t, s) => t + s.cap, 0);
+  const waitN = st.reduce((t, s) => t + s.waitPeople, 0);
+  const rows = st.flatMap((s) => s.list.map((e) => ({ e, s })));
+  const nameOf = (e) => { const m = e.memberId ? rosterPub.get(e.memberId) : null; return m ? `${m.code}${m.level ? " • Lv." + m.level : ""}` : e.memberId ? "สมาชิก" : "คนใหม่"; };
+  $("rDetail").innerHTML = `<div class="rhead"><div><b style="font-size:21px">${esc(thaiDay(r.id))}</b> <span class="st ${esc(r.status)}">${esc(STATUS[r.status] || r.status)}</span><div style="color:var(--muted);font-weight:700;font-size:13px;margin-top:4px">ลงชื่อ ${total}/${cap}${waitN ? ` • สำรอง ${waitN}` : ""} • ${st.map((s) => `${s.time} ${s.used}/${s.cap}`).join(" • ")} • ปิดรับ ${esc(thaiWhen(r.closeAt))}</div></div>
+    <div class="acts">
+      ${r.status !== "open" ? `<button class="btn gold" data-status="open">เปิดรับลงชื่อ</button>` : `<button class="btn danger" data-status="closed">ปิดรับลงชื่อ</button>`}
+      ${r.status === "closed" ? `<button class="btn" data-status="done">จบรอบ</button>` : ""}
+      <button class="btn" id="rCopy">คัดลอกรายชื่อไปโพสต์ LINE</button>
+      <button class="btn" id="rReload">รีเฟรช</button>
+    </div></div>
+    <div class="wrapx"><table class="etable"><thead><tr><th>ลำดับ</th><th>ชื่อเล่น</th><th>สมาชิก</th><th>เพื่อน</th><th>ฝากบอก</th><th>ลงเมื่อ</th><th></th></tr></thead><tbody>
+    ${rows.length ? st.map((s) => s.list.length ? `<tr><td colspan="7" style="background:var(--black);color:var(--gold);font-weight:900;font-size:12px">มา ${esc(s.time)} • ${s.used}/${s.cap}${s.waitPeople ? ` • สำรอง ${s.waitPeople}` : ""}</td></tr>` + s.list.map((e) => `<tr class="${e.state === "wait" ? "wait" : ""}"><td class="n">${e.state === "wait" ? "ส." : ""}${e.no}</td><td><b>${esc(e.name)}</b></td><td>${esc(nameOf(e))}</td><td>${(e.guests || []).map(esc).join(", ")}</td><td>${esc(selNotes.get(e.id) || "")}</td><td style="white-space:nowrap;color:var(--muted)">${esc(thaiWhen(e.createdAt))}</td><td><button class="btn danger" style="padding:6px 10px" data-del="${esc(e.id)}">${delArmed === e.id ? "ยืนยันลบ" : "ลบ"}</button></td></tr>`).join("") : "").join("") : `<tr><td colspan="7" class="empty">ยังไม่มีคนลงชื่อ${r.status === "draft" ? " • กด เปิดรับลงชื่อ เมื่อพร้อม" : ""}</td></tr>`}
+    </tbody></table></div>
+    <p style="margin:0;padding:10px 18px 14px;color:var(--muted);font-size:12px">หน้าลงชื่อสำหรับผู้เล่น: <a href="../signup/" target="_blank" rel="noopener">/badman/signup/</a> • ลบชื่อ = ที่ว่างในช่วงนั้นจะเลื่อนให้คนแรกในคิวสำรองของช่วงเดียวกัน</p>`;
+}
+$("rDetail").addEventListener("click", async (e) => {
+  const b = e.target.closest("button");
+  if (!b || !selRound) return;
+  try {
+    if (b.dataset.status) {
+      await saveRound(b.dataset.status);
+      await loadRounds(selRound.id);
+      toast(b.dataset.status === "open" ? "เปิดรับลงชื่อแล้ว" : b.dataset.status === "closed" ? "ปิดรับแล้ว" : "จบรอบแล้ว");
+    } else if (b.id === "rReload") { await selectRound(selRound.id); }
+    else if (b.id === "rCopy") {
+      const st = standingsOf(selRound, selEntries);
+      const lines = [`ก๊วนแบด BADMAN • ${thaiDay(selRound.id)}`];
+      for (const s of st) {
+        lines.push("", `มา ${s.time} (${s.used}/${s.cap})`);
+        let n = 0;
+        for (const x of s.list.filter((x) => x.state === "ok")) { lines.push(`${++n}. ${x.name}`); for (const g of x.guests || []) lines.push(`${++n}. ${g} (เพื่อน${x.name})`); }
+        const w = s.list.filter((x) => x.state === "wait");
+        if (w.length) lines.push(`สำรอง: ${w.map((x) => [x.name, ...(x.guests || [])].join(", ")).join(", ")}`);
+      }
+      lines.push("", "ลงชื่อ/ยกเลิกได้ที่ https://thexman49.github.io/badman/signup/");
+      await navigator.clipboard.writeText(lines.join("\n"));
+      toast("คัดลอกรายชื่อแล้ว วางในกลุ่ม LINE ได้เลย");
+    } else if (b.dataset.del) {
+      if (delArmed !== b.dataset.del) { delArmed = b.dataset.del; renderDetail(); return; }
+      delArmed = null;
+      await call("DELETE", `rounds/${selRound.id}/entries/${b.dataset.del}`);
+      await call("DELETE", `rounds/${selRound.id}/notes/${b.dataset.del}`).catch(() => {});
+      await selectRound(selRound.id);
+      toast("ลบชื่อแล้ว");
+    }
+  } catch (x) { toast(x.message, true); }
+});
+
 start();
 </script>
 </body>
