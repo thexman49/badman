@@ -85,6 +85,42 @@ h2 { margin:0; font-size:clamp(26px,3.4vw,34px); letter-spacing:-.03em; line-hei
 .livebox .closed { color:#4c4a42; font-weight:700; font-size:15px; }
 
 section.block { padding-top:64px; }
+
+/* who's coming this round: player cards on a conveyor */
+.coming { padding-top:56px; }
+.coming .head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 20px; margin-bottom:16px; }
+.coming h2 span { color:var(--brown); }
+.coming .head small { display:block; color:var(--muted); font-weight:700; margin-top:6px; }
+.belt { background:linear-gradient(125deg,#080808 0%,#161510 62%,#2b2411 100%); padding:26px 0; overflow:hidden; position:relative; }
+.belt::before, .belt::after { content:""; position:absolute; top:0; bottom:0; width:60px; z-index:2; pointer-events:none; }
+.belt::before { left:0; background:linear-gradient(90deg,#080808,rgba(8,8,8,0)); }
+.belt::after { right:0; background:linear-gradient(270deg,#251f10,rgba(37,31,16,0)); }
+.track { display:flex; gap:16px; width:max-content; padding:0 16px; }
+.track.run { animation:belt var(--dur,40s) linear infinite; }
+.belt:hover .track.run, .track.run:focus-within { animation-play-state:paused; }
+.track.still { width:auto; flex-wrap:wrap; justify-content:center; }
+@keyframes belt { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+@media (prefers-reduced-motion:reduce) { .track.run { animation:none; } .belt { overflow-x:auto; } }
+.pcard { width:196px; flex:0 0 auto; border-radius:18px; overflow:hidden; background:linear-gradient(170deg,#1d211d,#0f0f0e 72%); border:1px solid rgba(255,255,255,.14); text-decoration:none; color:#fff; display:block; transition:transform .2s; }
+.pcard:hover { transform:translateY(-4px); }
+.pcard.mid { background:linear-gradient(170deg,#2a2a24,#0f0f0e 72%); }
+.pcard.top { background:linear-gradient(170deg,#3a2e10,#0f0f0e 72%); border-color:var(--gold); }
+.pcard .pic { height:196px; position:relative; background:#fff; overflow:hidden; display:grid; place-items:center; }
+.pcard .pic img { width:100%; height:100%; object-fit:cover; display:block; }
+.pcard .pic .ini { font-size:72px; font-weight:900; color:var(--gold); background:var(--black); width:100%; height:100%; display:grid; place-items:center; }
+.pcard .rk { position:absolute; top:10px; left:10px; background:var(--black); color:var(--gold); border-radius:10px; padding:4px 9px; font-weight:900; font-size:13px; }
+.pcard .tm { position:absolute; top:10px; right:10px; background:rgba(15,15,14,.82); color:#fff; border-radius:10px; padding:4px 9px; font-weight:800; font-size:12px; }
+.pcard .gst { position:absolute; bottom:10px; right:10px; background:var(--gold); color:var(--black); border-radius:99px; padding:3px 9px; font-weight:900; font-size:11px; }
+.pcard .bd { padding:12px 14px 14px; display:flex; flex-direction:column; gap:6px; }
+.pcard .bd b { font-size:19px; letter-spacing:-.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pcard .lvl { display:flex; align-items:center; gap:7px; min-height:24px; }
+.pcard .lvl img { width:24px; height:24px; border-radius:50%; background:#fff; border:1.5px solid var(--gold); }
+.pcard .lvl small { color:var(--gold); font-weight:900; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pcard .nums { display:flex; gap:14px; font-variant-numeric:tabular-nums; }
+.pcard .nums span { display:flex; flex-direction:column; }
+.pcard .nums strong { font-size:18px; }
+.pcard .nums small { color:#b9b29f; font-size:10px; }
+@media (max-width:540px) { .pcard { width:160px; } .pcard .pic { height:160px; } .pcard .bd b { font-size:16px; } }
 .section-head { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:8px 24px; margin-bottom:22px; }
 .section-head > span { color:var(--muted); font-weight:700; }
 .section-head a.more { font-weight:900; text-decoration:none; border-bottom:2px solid var(--gold); padding-bottom:2px; }
@@ -231,6 +267,14 @@ footer nav { display:flex; gap:14px; flex-wrap:wrap; }
       <a class="btn dark" href="live/">เปิดหน้าคิวสด →</a>
     </div>
   </div>
+</section>
+
+<section class="coming" id="coming" hidden aria-label="คนที่ลงชื่อรอบนี้">
+  <div class="wrap head">
+    <div><p class="eyebrow" id="comingDay">รอบนี้</p><h2 id="comingTitle">ใครมาบ้าง</h2><small id="comingSub"></small></div>
+    <a class="btn gold" href="signup/" id="comingCta">ลงชื่อเข้าร่วม</a>
+  </div>
+  <div class="belt"><div class="track" id="track"></div></div>
 </section>
 
 <section class="block" id="join">
@@ -413,7 +457,79 @@ async function loadRanking() {
   }
 }
 
-loadLive(); loadRanking();
+/* ---------- who's coming this round ---------- */
+function fvx(v) {
+  if (!v) return null;
+  if ("stringValue" in v) return v.stringValue; if ("integerValue" in v) return Number(v.integerValue);
+  if ("timestampValue" in v) return v.timestampValue; if ("nullValue" in v) return null;
+  if ("arrayValue" in v) return (v.arrayValue.values || []).map(fvx);
+  return null;
+}
+async function listCol(path) {
+  const r = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE.projectId}/databases/(default)/documents/${path}?pageSize=300&key=${FIREBASE.apiKey}`, { cache: "no-store" });
+  if (!r.ok) return [];
+  const b = await r.json();
+  return (b.documents || []).map((d) => ({ id: d.name.split("/").pop(), ...Object.fromEntries(Object.entries(d.fields || {}).map(([k, v]) => [k, fvx(v)])) }));
+}
+const comingPhotos = new Map();
+async function loadComing() {
+  try {
+    const today = clubDay();
+    const rounds = (await listCol("rounds")).filter((r) => r.status === "open" && r.id >= today).sort((a, b) => a.id.localeCompare(b.id));
+    const round = rounds[0];
+    if (!round) { $("coming").hidden = true; return; }
+    let cfg = {}; try { cfg = JSON.parse(round.json || "{}"); } catch {}
+    const cap = (cfg.slots || []).reduce((t, s) => t + (s.cap || 0), 0);
+    const [entries, roster, stats] = await Promise.all([listCol(`rounds/${round.id}/entries`), getJson("public/roster").catch(() => null), getJson("public/stats").catch(() => null)]);
+    if (!entries.length) {
+      $("coming").hidden = false;
+      $("comingDay").textContent = new Date(round.id + "T12:00:00+07:00").toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "short" });
+      $("comingTitle").innerHTML = `ยังไม่มีใครลงชื่อ <span>มาเป็นคนแรก</span>`;
+      $("comingSub").textContent = cap ? `รับ ${cap} คน • เลือกช่วงเวลาที่จะมาได้เอง` : "";
+      $("track").className = "track still"; $("track").innerHTML = "";
+      return;
+    }
+    const byId = new Map((roster?.members || []).map((m) => [m.id, m]));
+    // Rank among active ranked members, the same as the Ranking page.
+    const ranked = Object.entries(stats?.members || {}).map(([id, st]) => ({ id, st, m: byId.get(id) })).filter((x) => x.m && x.m.active !== false).sort((a, b) => a.st.rank - b.st.rank);
+    const rankOf = new Map(ranked.map((x, i) => [x.id, { ...x.st, rank: i + 1 }]));
+    const people = entries.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map((e, i) => {
+      const m = e.memberId ? byId.get(e.memberId) : null;
+      return { e, m, st: m ? rankOf.get(m.id) : null, order: i };
+    });
+    people.sort((a, b) => (a.st ? a.st.rank : 9999) - (b.st ? b.st.rank : 9999) || a.order - b.order);
+    const headcount = entries.reduce((t, e) => t + 1 + (e.guests?.length || 0), 0);
+    $("coming").hidden = false;
+    $("comingDay").textContent = "ใครมาบ้าง • " + new Date(round.id + "T12:00:00+07:00").toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "short" });
+    $("comingTitle").innerHTML = `ลงชื่อแล้ว <span>${headcount} คน</span>`;
+    $("comingSub").textContent = cap ? (headcount < cap ? `เหลือ ${cap - headcount} ที่ • เรียงตามอันดับ Ranking` : "เต็มแล้ว ลงชื่อต่อคิวสำรองได้") : "";
+    $("comingCta").textContent = cap && headcount >= cap ? "ลงชื่อต่อคิวสำรอง" : `ลงชื่อเข้าร่วม${cap ? ` • เหลือ ${Math.max(0, cap - headcount)} ที่` : ""}`;
+    const card = ({ e, m, st }) => {
+      const lv = m && levelOf(m.level);
+      const cls = lv && lv.value >= 7 ? "top" : lv && lv.value >= 5 ? "mid" : "";
+      const name = m?.name || e.name;
+      const pic = m?.photo ? `<span class="ini" data-cphoto="${esc(m.id)}">${esc(initial(name))}</span>` : lv ? `<img src="levels/full${lv.value}.webp" alt="" loading="lazy">` : `<span class="ini">${esc(initial(name))}</span>`;
+      const href = m?.code && st ? `ranking/#${encodeURIComponent(m.code)}` : "signup/";
+      return `<a class="pcard ${cls}" href="${href}"><div class="pic">${pic}${st ? `<span class="rk">#${st.rank}</span>` : `<span class="rk">${m ? "สมาชิก" : "ใหม่"}</span>`}<span class="tm">${esc(e.slot || "")}</span>${e.guests?.length ? `<span class="gst">+${e.guests.length} เพื่อน</span>` : ""}</div><div class="bd"><b>${esc(name)}</b><span class="lvl">${lv ? `<img src="levels/lv${lv.value}.webp" alt=""><small>Lv.${lv.value} ${esc(lv.name)}</small>` : `<small style="color:#b9b29f">ยังไม่ระบุระดับ</small>`}</span><div class="nums"><span><strong>${st ? st.points : "–"}</strong><small>แต้ม</small></span><span><strong>${st ? st.winPct + "%" : "–"}</strong><small>ชนะ</small></span><span><strong>${st ? st.games : "–"}</strong><small>เกม</small></span></div></div></a>`;
+    };
+    const cards = people.map(card).join("");
+    const run = people.length >= 5;
+    const t = $("track");
+    t.className = run ? "track run" : "track still";
+    t.style.setProperty("--dur", `${Math.max(24, people.length * 3.4)}s`);
+    // The belt shows the list twice so the loop is seamless; the copy is hidden from screen readers.
+    t.innerHTML = run ? cards + `<div style="display:contents" aria-hidden="true">${cards.replace(/<a /g, '<a tabindex="-1" ')}</div>` : cards;
+    t.querySelectorAll("[data-cphoto]").forEach(async (el) => {
+      const id = el.dataset.cphoto;
+      if (!comingPhotos.has(id)) comingPhotos.set(id, fetch(DOC("photos/" + encodeURIComponent(id)), { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => d?.fields?.data?.stringValue || null).catch(() => null));
+      const src = await comingPhotos.get(id);
+      if (src && src.startsWith("data:image/") && el.isConnected) el.outerHTML = `<img src="${src}" alt="">`;
+    });
+  } catch { $("coming").hidden = true; }
+}
+
+loadLive(); loadRanking(); loadComing();
+setInterval(loadComing, 120000);
 setInterval(loadLive, 60000);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) loadLive(); });
 </script>
