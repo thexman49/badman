@@ -125,6 +125,17 @@ h3 { margin:0 0 10px; font-size:14px; letter-spacing:.06em; color:#a47a06; font-
 .partner > span:not(.avatar) { flex:1; font-weight:800; min-width:0; }
 .partner em { font-style:normal; color:var(--muted); font-size:12px; }
 .back { display:inline-block; margin-top:14px; font-weight:800; text-decoration:none; color:var(--muted); }
+.card-bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:14px 20px; border-top:1px solid var(--line); background:#fbf8ef; }
+.card-bar span { color:var(--muted); font-size:13px; font-weight:700; }
+.card-btn { border:0; border-radius:11px; background:var(--gold); color:#0f0f0e; font:inherit; font-weight:900; font-size:15px; padding:11px 16px; cursor:pointer; display:inline-flex; gap:8px; align-items:center; }
+.card-btn[disabled] { opacity:.6; cursor:progress; }
+.card-preview { position:fixed; inset:0; background:rgba(10,10,9,.86); z-index:20; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:20px; }
+.card-preview img { max-width:min(420px,100%); max-height:calc(100vh - 150px); border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.card-preview .row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
+.card-preview .row a, .card-preview .row button { border:0; border-radius:11px; padding:11px 16px; font:inherit; font-weight:900; cursor:pointer; text-decoration:none; }
+.card-preview .row a { background:var(--gold); color:#0f0f0e; }
+.card-preview .row button { background:rgba(255,255,255,.12); color:#fff; }
+.card-preview small { color:#d8d2c0; text-align:center; }
 .lvi { border-radius:50%; vertical-align:-4px; background:#fff; object-fit:cover; }
 .chip .lvi { margin-right:3px; }
 .levels { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:10px; padding:14px 16px 16px; }
@@ -260,6 +271,7 @@ function renderProfile(code) {
     ${s ? `<div class="tiles"><div><small>แต้ม</small><strong>${s.points}</strong></div><div><small>เกม</small><strong>${s.games}</strong></div><div><small>ชนะ</small><strong class="w">${s.wins}</strong></div><div><small>เสมอ / แพ้</small><strong>${s.draws}<span style="color:var(--muted)"> / </span><span class="l">${s.losses}</span></strong></div><div><small>อัตราชนะ</small><strong>${s.winPct}%</strong></div></div>
     <div class="split"><section><h3>เกมล่าสุด</h3>${s.recent.length ? s.recent.map((g) => `<div class="game"><span class="res ${g.r}">${g.r === "W" ? "ชนะ" : g.r === "L" ? "แพ้" : "เสมอ"}</span><span>${g.p ? `คู่กับ <b>${team([g.p])}</b>` : "<b>—</b>"}<small>พบ ${team(g.o.filter(Boolean)) || "—"}</small></span><time>${esc(thaiDate(g.d, { day: "numeric", month: "short" }))}</time></div>`).join("") : '<div class="empty">ยังไม่มีเกมที่บันทึกผล</div>'}</section>
     <section><h3>คู่ที่เล่นด้วยบ่อย</h3>${s.partners.length ? s.partners.map((p) => { const pm = who(p.id); return `<a class="partner" href="${link(pm)}">${avatar(pm)}<span>${esc(display(pm))}</span><em>${p.n} เกม</em></a>`; }).join("") : '<div class="empty" style="padding:14px">ยังไม่มีข้อมูล</div>'}</section></div>` : '<div class="empty">ยังไม่มีผลการแข่งขันที่บันทึกไว้</div>'}
+    <div class="card-bar"><span>การ์ดผู้เล่นสำหรับลงสตอรี่ IG / FB หรือส่งใน LINE</span><button class="card-btn" id="makeCard" data-code="${esc(m.code)}">บันทึกการ์ดของฉัน</button></div>
   </section><a class="back" href="./">← กลับไปหน้า Ranking</a>`;
   hydratePhotos();
   window.scrollTo(0, 0);
@@ -282,7 +294,94 @@ document.addEventListener("click", (e) => {
   if (c) { level = Number(c.dataset.level); shown = PAGE; renderRanking(); if (c.classList.contains("lv")) document.getElementById("rows")?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   if (e.target.id === "more") { shown += PAGE; renderRanking(); }
 });
-window.addEventListener("hashchange", route);
+window.addEventListener("hashchange", () => { document.getElementById("cardPreview")?.remove(); route(); });
+
+// ---- Shareable player card (1080x1350, drawn locally; only public data) ----
+function loadImg(src) { return new Promise((ok) => { if (!src) return ok(null); const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = src; }); }
+function circle(ctx, img, x, y, r, fill) {
+  ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.closePath(); ctx.fillStyle = fill || "#fff"; ctx.fill(); ctx.clip();
+  if (img) { const k = Math.max((2 * r) / img.width, (2 * r) / img.height); const w = img.width * k, h = img.height * k; ctx.drawImage(img, x - w / 2, y - h / 2, w, h); }
+  ctx.restore();
+}
+function fitText(ctx, text, max, size, weight = 900) {
+  let px = size; do { ctx.font = `${weight} ${px}px "Noto Sans Thai","Leelawadee UI",Tahoma,sans-serif`; px -= 4; } while (ctx.measureText(text).width > max && px > 24);
+}
+async function drawCard(m) {
+  const s = stats.members[m.id];
+  const lv = levelOf(m.level);
+  try { await document.fonts?.load('900 40px "Noto Sans Thai"'); } catch {}
+  let photo = null;
+  if (m.photo) {
+    if (!photoCache.has(m.id)) photoCache.set(m.id, getDoc("photos/" + encodeURIComponent(m.id)).then((d) => d?.fields?.data?.stringValue || null).catch(() => null));
+    const src = await photoCache.get(m.id);
+    if (src && src.startsWith("data:image/")) photo = await loadImg(src);
+  }
+  const [logo, art, badge] = await Promise.all([loadImg("../badman-begin-logo.webp"), lv ? loadImg(`../levels/full${lv.value}.webp`) : null, lv ? loadImg(`../levels/lv${lv.value}.webp`) : null]);
+  const W = 1080, H = 1350, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  const g = ctx.createLinearGradient(0, 0, W, H); g.addColorStop(0, "#080808"); g.addColorStop(0.6, "#161510"); g.addColorStop(1, "#3a2e10"); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = "rgba(233,185,47,.16)"; ctx.lineWidth = 2;
+  for (const r of [300, 380, 470]) { ctx.beginPath(); ctx.arc(W - 40, 80, r, 0, Math.PI * 2); ctx.stroke(); }
+  // header
+  if (logo) { circle(ctx, logo, 120, 120, 62, "#0f0f0e"); ctx.beginPath(); ctx.arc(120, 120, 62, 0, Math.PI * 2); ctx.lineWidth = 5; ctx.strokeStyle = "#e9b92f"; ctx.stroke(); }
+  ctx.textBaseline = "middle"; ctx.textAlign = "left";
+  ctx.font = '900 46px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillStyle = "#fff"; ctx.fillText("BADMAN", 206, 104);
+  const bw = ctx.measureText("BADMAN ").width; ctx.fillStyle = "#e9b92f"; ctx.fillText("BEGIN", 206 + bw, 104);
+  ctx.font = '700 26px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillStyle = "#b9b29f"; ctx.fillText("PLAYER CARD • ก๊วนแบดวันศุกร์", 206, 150);
+  // portrait
+  const cx = W / 2, cy = 520, R = 250;
+  ctx.beginPath(); ctx.arc(cx, cy, R + 22, 0, Math.PI * 2); ctx.fillStyle = "rgba(233,185,47,.14)"; ctx.fill();
+  circle(ctx, photo || art, cx, cy, R, photo ? "#fff" : art ? "#fff" : "#0f0f0e");
+  if (!photo && !art) { ctx.textAlign = "center"; ctx.font = '900 200px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillStyle = "#e9b92f"; ctx.fillText(display(m).trim().replace(/^[เแโใไ]+/, "").charAt(0).toUpperCase(), cx, cy + 10); }
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.lineWidth = 12; ctx.strokeStyle = "#e9b92f"; ctx.stroke();
+  if (badge && photo) { const bx = cx + R * 0.72, by = cy + R * 0.72; circle(ctx, badge, bx, by, 82, "#fff"); ctx.beginPath(); ctx.arc(bx, by, 82, 0, Math.PI * 2); ctx.lineWidth = 8; ctx.strokeStyle = "#e9b92f"; ctx.stroke(); }
+  if (s) {
+    const rx = cx - R * 0.78, ry = cy - R * 0.78;
+    ctx.beginPath(); ctx.arc(rx, ry, 92, 0, Math.PI * 2); ctx.fillStyle = "#e9b92f"; ctx.fill(); ctx.lineWidth = 8; ctx.strokeStyle = "#0f0f0e"; ctx.stroke();
+    ctx.textAlign = "center"; ctx.fillStyle = "#0f0f0e"; ctx.font = '800 26px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillText("อันดับ", rx, ry - 34);
+    fitText(ctx, "#" + s.rank, 150, 76); ctx.fillText("#" + s.rank, rx, ry + 22);
+  }
+  // name + level
+  ctx.textAlign = "center"; ctx.fillStyle = "#fff"; fitText(ctx, display(m), W - 140, 104); ctx.fillText(display(m), cx, 875);
+  ctx.font = '800 38px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillStyle = "#e9b92f";
+  ctx.fillText(lv ? `LEVEL ${lv.value} • ${lv.name}` : m.code, cx, 960);
+  if (lv) { ctx.font = '700 30px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillStyle = "#d8d2c0"; ctx.fillText(lv.th, cx, 1008); }
+  // stat tiles
+  const tiles = s ? [["แต้ม", s.points], ["เกม", s.games], ["ชนะ", s.wins], ["อัตราชนะ", s.winPct + "%"]] : [["สมาชิก", m.code], ["ระดับ", lv ? "Lv." + lv.value : "—"]];
+  const gap = 18, tw = (W - 120 - gap * (tiles.length - 1)) / tiles.length, ty = 1060;
+  tiles.forEach(([k, v], i) => {
+    const x = 60 + i * (tw + gap);
+    ctx.fillStyle = "rgba(255,255,255,.07)"; ctx.strokeStyle = "rgba(233,185,47,.35)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, ty, tw, 140, 22) : ctx.rect(x, ty, tw, 140); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#b9b29f"; ctx.font = '800 26px "Noto Sans Thai",Tahoma,sans-serif'; ctx.fillText(k, x + tw / 2, ty + 40);
+    ctx.fillStyle = "#fff"; fitText(ctx, String(v), tw - 24, 60); ctx.fillText(String(v), x + tw / 2, ty + 96);
+  });
+  // footer band
+  ctx.fillStyle = "#e9b92f"; ctx.fillRect(0, H - 100, W, 100);
+  ctx.fillStyle = "#0f0f0e"; fitText(ctx, "ทุกศุกร์ 20:00 • ลาดพร้าว 64 • thexman49.github.io/badman", W - 80, 34, 800); ctx.fillText("ทุกศุกร์ 20:00 • ลาดพร้าว 64 • thexman49.github.io/badman", cx, H - 50);
+  return new Promise((ok) => c.toBlob((b) => ok(b), "image/png"));
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("#makeCard");
+  if (b) {
+    const m = byCode.get(String(b.dataset.code).toUpperCase()); if (!m) return;
+    b.disabled = true; b.textContent = "กำลังสร้างการ์ด…";
+    try {
+      const blob = await drawCard(m);
+      const file = new File([blob], `badman-${m.code}.png`, { type: "image/png" });
+      const url = URL.createObjectURL(blob);
+      const box = document.createElement("div"); box.className = "card-preview"; box.id = "cardPreview";
+      const canShare = navigator.canShare && navigator.canShare({ files: [file] });
+      box.innerHTML = `<img src="${url}" alt="การ์ดผู้เล่น ${esc(display(m))}"><div class="row">${canShare ? `<button id="cardShare" style="background:#e9b92f;color:#0f0f0e">แชร์ไป IG / FB / LINE</button>` : ""}<a href="${url}" download="badman-${esc(m.code)}.png">ดาวน์โหลดรูป</a><button id="cardClose">ปิด</button></div><small>บนมือถือ: กดค้างที่รูปแล้วเลือก บันทึกรูปภาพ ได้เช่นกัน</small>`;
+      document.body.appendChild(box);
+      box._file = file;
+      b.disabled = false; b.textContent = "บันทึกการ์ดของฉัน"; } catch { b.disabled = false; b.textContent = "สร้างการ์ดไม่สำเร็จ ลองอีกครั้ง"; }
+    return;
+  }
+  if (e.target.id === "cardShare") { const f = $("cardPreview")?._file; try { await navigator.share({ files: [f], title: "BADMAN BEGIN", text: "การ์ดผู้เล่นก๊วน BADMAN • thexman49.github.io/badman" }); } catch {} return; }
+  if (e.target.id === "cardClose" || e.target.id === "cardPreview") { $("cardPreview")?.remove(); }
+});
+
 
 (async () => {
   try {

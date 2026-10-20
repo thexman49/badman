@@ -309,7 +309,7 @@ footer nav { display:flex; gap:14px; flex-wrap:wrap; }
   <div class="wrap">
     <div class="section-head">
       <div><p class="eyebrow">RANKING</p><h2>ท็อป 3 ของก๊วน</h2></div>
-      <a class="more" href="ranking/">ดูอันดับทั้งหมด →</a>
+      <a class="more" href="ranking/">ดูอันดับทั้งหมด →</a> <a class="more" href="night/">สรุปคืนล่าสุด →</a>
     </div>
     <div id="podium"><div class="empty-note">กำลังโหลดอันดับ…</div></div>
     <div class="club" id="club" hidden></div>
@@ -361,7 +361,7 @@ footer nav { display:flex; gap:14px; flex-wrap:wrap; }
 <footer>
   <div class="wrap">
     <span>©2026 BADMAN Badminton • ก๊วนแบดวันศุกร์ ลาดพร้าว 64</span>
-    <nav aria-label="ลิงก์ท้ายหน้า"><a href="signup/">ลงชื่อ</a><a href="https://www.facebook.com/BadmintonBadman" target="_blank" rel="noopener">Facebook</a><a href="https://line.me/ti/g2/1V9hnTcnCEHI0yKYq7qrirFQPJjd8am_GNZqrA" target="_blank" rel="noopener">LINE โอเพนแชท</a><a href="live/">คิวสด</a><a href="ranking/">Ranking</a><a href="court/">สำหรับทีมงาน</a></nav>
+    <nav aria-label="ลิงก์ท้ายหน้า"><a href="signup/">ลงชื่อ</a><a href="https://www.facebook.com/BadmintonBadman" target="_blank" rel="noopener">Facebook</a><a href="https://line.me/ti/g2/1V9hnTcnCEHI0yKYq7qrirFQPJjd8am_GNZqrA" target="_blank" rel="noopener">LINE โอเพนแชท</a><a href="live/">คิวสด</a><a href="ranking/">Ranking</a><a href="night/">สรุปคืนก๊วน</a><a href="court/">สำหรับทีมงาน</a></nav>
   </div>
 </footer>
 
@@ -493,12 +493,15 @@ async function loadComing() {
     // Rank among active ranked members, the same as the Ranking page.
     const ranked = Object.entries(stats?.members || {}).map(([id, st]) => ({ id, st, m: byId.get(id) })).filter((x) => x.m && x.m.active !== false).sort((a, b) => a.st.rank - b.st.rank);
     const rankOf = new Map(ranked.map((x, i) => [x.id, { ...x.st, rank: i + 1 }]));
-    const people = entries.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))).map((e, i) => {
+    // Same member signed up twice: show once (earliest), keep any guests the later entry brought.
+    const seenM = new Set();
+    for (const e of entries.sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)))) { e.dupOf = e.memberId && seenM.has(e.memberId); if (e.memberId) seenM.add(e.memberId); }
+    const people = entries.filter((e) => !e.dupOf).map((e, i) => {
       const m = e.memberId ? byId.get(e.memberId) : null;
       return { e, m, st: m ? rankOf.get(m.id) : null, order: i };
     });
     people.sort((a, b) => (a.st ? a.st.rank : 9999) - (b.st ? b.st.rank : 9999) || a.order - b.order);
-    const headcount = entries.reduce((t, e) => t + 1 + (e.guests?.length || 0), 0);
+    const headcount = entries.reduce((t, e) => t + (e.dupOf ? 0 : 1) + (e.guests?.length || 0), 0);
     $("coming").hidden = false;
     $("comingDay").textContent = "ใครมาบ้าง • " + new Date(round.id + "T12:00:00+07:00").toLocaleDateString("th-TH", { weekday: "long", day: "numeric", month: "short" });
     $("comingTitle").innerHTML = `ลงชื่อแล้ว <span>${headcount} คน</span>`;

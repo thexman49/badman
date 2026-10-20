@@ -335,7 +335,7 @@ function renderForm(st) {
       <b>1. คุณคือใคร?</b>
       ${picked ? `<div class="choices"><button type="button" class="choice" aria-pressed="true" id="unpick">${avatar({ name: picked.name, memberId: picked.id })}<span class="who"><b>${esc(picked.name)}</b><small>${esc(picked.code)}${picked.level ? " • Lv." + picked.level + " " + LV[picked.level] : ""} • แตะเพื่อเปลี่ยน</small></span></button></div>` : `
       <label class="f">ชื่อเล่นที่ใช้ในก๊วน<input class="t" id="fName" value="${esc(f.query)}" maxlength="30" autocomplete="nickname" placeholder="พิมพ์ชื่อเล่น"></label>
-      ${matches.length ? `<div class="choices">${matches.map((m) => `<button type="button" class="choice" data-pick="${esc(m.id)}">${avatar({ name: m.name, memberId: m.id })}<span class="who"><b>${esc(m.name)}</b><small>${esc(m.code)}${m.level ? " • Lv." + m.level + " " + LV[m.level] : ""}</small></span></button>`).join("")}</div><small style="color:var(--muted)">เป็นสมาชิกอยู่แล้ว แตะชื่อตัวเอง • ถ้าไม่ใช่ ลงด้วยชื่อที่พิมพ์ได้เลย</small>` : q ? `<small style="color:var(--muted)">ไม่พบชื่อนี้ในรายชื่อสมาชิกที่เปิดเผย จะลงเป็นชื่อ "${esc(f.query.trim())}"</small>` : ""}`}
+      ${matches.length ? `<div class="choices">${matches.map((m) => `<button type="button" class="choice" data-pick="${esc(m.id)}">${avatar({ name: m.name, memberId: m.id })}<span class="who"><b>${esc(m.name)}</b><small>${esc(m.code)}${m.level ? " • Lv." + m.level + " " + LV[m.level] : ""}${signedIds().has(m.id) ? " • ลงชื่อแล้ว" : ""}</small></span></button>`).join("")}</div><small style="color:var(--muted)">เป็นสมาชิกอยู่แล้ว แตะชื่อตัวเอง • ถ้าไม่ใช่ ลงด้วยชื่อที่พิมพ์ได้เลย</small>` : q ? `<small style="color:var(--muted)">ไม่พบชื่อนี้ในรายชื่อสมาชิกที่เปิดเผย จะลงเป็นชื่อ "${esc(f.query.trim())}"</small>` : ""}`}
     </div>
     <fieldset class="box"><legend>2. จะมาถึงช่วงไหน?</legend>
       ${slotInfo.map((s) => `<label class="slotpick"><input type="radio" name="slot" value="${esc(s.time)}"${f.slot === s.time ? " checked" : ""}><span><b>${esc(s.time)}</b><small style="color:${s.full ? "#98450c" : s.left < s.cap ? "#725300" : "#0f6843"}">${s.full ? "เต็มแล้ว • เลือกได้ จะต่อคิวสำรอง" : s.left < s.cap ? `เหลือ ${s.left} ที่` : `ว่าง ${s.left} ที่`}</small></span></label>`).join("")}
@@ -418,6 +418,7 @@ function openForm(editing) {
   if (my && !form.memberId && my.memberId) form.query = my.name;
   view = "form"; cancelArmed = false; render(); window.scrollTo(0, 0);
 }
+function signedIds() { return new Set(entries.filter((e) => e.id !== auth?.uid && e.memberId).map((e) => e.memberId)); }
 async function submit() {
   const f = form;
   const picked = f.memberId ? roster.get(f.memberId) : null;
@@ -431,6 +432,8 @@ async function submit() {
     const exact = [...roster.values()].filter((m) => m.name && norm(m.name) === norm(name));
     if (exact.length === 1) f.memberId = exact[0].id;
   }
+  const taken = f.memberId && entries.find((e) => e.id !== auth?.uid && e.memberId === f.memberId);
+  if (taken) { f.error = `${name} ลงชื่อในรอบนี้แล้ว (ช่วง ${taken.slot}) • ถ้าไม่ได้ลงเอง หรืออยากแก้ไขจากเครื่องอื่น ทักทีมงานในกลุ่ม LINE`; if (!picked) f.memberId = null; return render(); }
   const dup = entries.find((e) => e.id !== auth?.uid && norm(e.name) === norm(name));
   if (dup && !f.dupOk) { f.dupOk = true; f.error = `มีคนลงชื่อ "${name}" ในรอบนี้แล้ว ถ้าเป็นคนละคน กดยืนยันอีกครั้ง หรือเพิ่มตัวอักษรท้ายชื่อ`; return render(); }
   busy = true; f.error = ""; render();
