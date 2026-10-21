@@ -1,6 +1,6 @@
 {
-  "name": "BADMAN — จัดก๊วนแบด Offline",
-  "short_name": "BADMAN",
+  "name": "BADMAN BEGIN — จัดก๊วนแบด Offline",
+  "short_name": "BADMAN BEGIN",
   "description": "ระบบจัดคิวและสถิติของก๊วนแบด Badman",
   "start_url": "/badman/court/",
   "display": "standalone",
